@@ -107,7 +107,7 @@ class UserAdapter(SwimlaneResolver):
         return UserListCursor(swimlane=self._swimlane, limit=limit)
 
     @check_cache(User)
-    @one_of_keyword_only('id', 'display_name')
+    @one_of_keyword_only('id', 'display_name', 'username')
     def get(self, arg, value):
         """Retrieve single user record by id or username
 
@@ -118,6 +118,7 @@ class UserAdapter(SwimlaneResolver):
         Keyword Args:
             id (str): Full User ID
             display_name (str): User display name
+            username (str): Username
 
         Returns:
             User: User instance matching provided inputs
@@ -133,6 +134,21 @@ class UserAdapter(SwimlaneResolver):
                 user_data = response.json()
             except ValueError:
                 raise ValueError('Unable to find user with ID "{}"'.format(value))
+
+            return User(self._swimlane, user_data)
+
+        elif arg == 'username':
+            users = self._swimlane.request('get', 'user').json()
+
+            user_data = None
+
+            for user in users['users']:
+                if user['userName'] == value:
+                    user_data = user
+                    break
+
+            if not user_data:
+                raise ValueError('No user with username "{}" exists'.format(value))
 
             return User(self._swimlane, user_data)
 

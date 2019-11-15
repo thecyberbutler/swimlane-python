@@ -293,6 +293,8 @@ Retrieve a single user by ID or display name:
 
     user_by_display_name = swimlane.users.get(display_name='admin')
 
+    user_by_username = swimlane.users.get(username='admin')
+
 Get list of all users:
 
 .. code-block:: python
