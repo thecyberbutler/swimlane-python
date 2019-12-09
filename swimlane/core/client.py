@@ -90,8 +90,7 @@ class Swimlane(object):
             default_timeout=60,
             verify_server_version=True,
             resource_cache_size=0,
-            access_token=None,
-            write_to_read_only=False
+            access_token=None
     ):
         self.__verify_auth_params(username, password, access_token)
 
