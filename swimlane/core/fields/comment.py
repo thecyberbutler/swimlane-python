@@ -7,15 +7,18 @@ from .base import CursorField, FieldCursor, ReadOnly
 class CommentCursor(FieldCursor):
     """Returned by CommentField to allow iteration and creation of Comment instances"""
 
-    def comment(self, message):
+    def comment(self, message, rich_text=False):
         """Add new comment to record comment field"""
         message = str(message)
+        if not isinstance(rich_text, bool):
+            raise ValueError("rich_text must be a boolean value.")
 
         sw_repr = {
             '$type': 'Core.Models.Record.Comments, Core',
             'createdByUser': self._record._swimlane.user.as_usergroup_selection(),
             'createdDate': pendulum.now().to_rfc3339_string(),
-            'message': message
+            'message': message,
+            'isRichText': rich_text
         }
 
         comment = Comment(self._swimlane, sw_repr)
@@ -24,7 +27,7 @@ class CommentCursor(FieldCursor):
         self._record._raw['comments'].setdefault(self._field.id, [])
         self._record._raw['comments'][self._field.id].append(comment._raw)
 
-        #Tracking comment changes for patch endpoint
+        # Tracking comment changes for patch endpoint
         self._record._comments_modified = True
 
         return comment
