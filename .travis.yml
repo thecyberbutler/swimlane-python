@@ -2,7 +2,6 @@ sudo: false
 language: python
 python:
 - '2.7'
-- '3.4'
 - '3.5'
 - '3.6'
 install:
@@ -15,7 +14,7 @@ before_deploy: python offline_installer/build_installer.py
 deploy:
 - provider: releases
   api_key:
-    secure: cJWvvnIxF67OgjUfpahgLbsQC/XEjgwkX1Ohb32FY9rhKEJcqjU46+31N9vGKkPMFi42K0/lrfuM6w9oCiM4IyOM3y8AGro5XoMwyIMBvglyS0HHPF5gVNu+WLj4M2Zx47MechgHcAxqw8NMYMqxIIx5vBzHabWnMt2Z16Q9r4olcwBxzLqJHowchACU9XIY9EH+i3OonDRdyUScAQq1aw4BJfkdZKy3KUl3H2/yyRlJmhLHJ6/XaypWrdPCprs65Rtfw20M7bDa2+EJLq3GkzBYflWvW2qYYcJoZZUD3YnqApEgxkPtaYF+Wt6sjENiqHEyrOxA0OVapbLskm8aN66lFRr/n/7WeJaPPaN39Qs2ToVBH5AYLiq2id+/9sq0tM35XolM7bFrIB8tad2u/0+uWnt7E+g/26b0KFLRX0ReZGBL+zHYTM2AGlkpUZpKlaGlUd7HNbdTUjBnQYMeGA/O/QJ0ExPRjRjdDw/VZrW6zk83ynqAg5qmpNV/tG/oTj4h/e7yfMvJpDuFZ8DkVs9RRdnY462AOToby6oooM+b012fY9UykMgfcEXeq4YNiUnvdsmNXFGyv0s+/VvIZdcl6QGNV8dy//qLUdhQ3s59AI4Q4YxH318pkoQDEl7kxbSvcf5dkE7W29/6SUulPc4+2hK5cmQcddPASsHmrNY=
+    secure: L81BsNWQWHfEhIn08msPm2EDo+PAbkUKRsL+Az1o7NqQgK5i8zC4L2rfEPt6QrAD5F8InxTLG8Z7tk7vH+KPSzn043S2pLtdYvNXqjjgYsT7FpmhsnSI9ib7mHWzjSYveM5RNduQN73w+iR4qrR5vdzUKVmYzkg+M5rJ+sg7kGv+g0jg7MgEZzbs2oR0OxMs+iTCzJDL20TFVNnXdhdNNLpb92Rw0sNgmbRFv4WWq2TKQTvL8h51WKg0O4W4NRZ5k1pOuyn6LLov5fwGsSp/vllDnZKZ6GlXoQMlHuYKl6dWVyFvrUXK8HVOM6cHR/RgHme/WSwsXdyCgae7U05P8HPNcMWSXPd+elwi/ys18BK6BCnZuaQLWJ9Gd/W6LkI5Q1dcuJrklPovpjpAkdYFI7dDYiXLJbH9aelKIrBjgTOnq+3y0Qk0XbdCB83LPRnKrqOTLq6LehQWeLkY543mfEURMFTgwE06QS577Gp8Oeu0MGAsL2SnX1ZLvPdRldOeRmGUl/kiAB0HD1Km5gK2K2GGh5yD83qdvuTo3eA31S9dwVgPlyD1QlfTRfdkzxmQzwzc5jkpABaSNc8Rspuz217vylLJ2kIoP9uHzsY0THfUfvnNQQj+sM+2caSQ7A9/AYL6zU66BsUYsvkQadyYpLbbkDQ5Kw+/eVEEuwkXj7s=
   file_glob: true
   file: dist/*offline-installer*
   skip_cleanup: true
