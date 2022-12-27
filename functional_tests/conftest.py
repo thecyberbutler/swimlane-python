@@ -7,8 +7,15 @@ import sys
 from swimlane import Swimlane
 from faker import Faker
 from io import BytesIO
+from zipfile import ZipFile
+
+try:
+    from pathlib import Path
+except ImportError:
+    from pathlib2 import Path
 
 pytest.fake = Faker()
+file_path = str(Path(__file__).parent)
 
 
 def pytest_addoption(parser):
@@ -20,21 +27,38 @@ def pytest_addoption(parser):
                      help="Password to log in as the supplied user")
     parser.addoption("--skipverify", action="store_false",
                      help="pass in to not verify the server version with the pydriver version")
+    parser.addini("url", help="By default: https://localhost")
+    parser.addini("user", help="By default: admin")
+    parser.addini("pass", help="Password to log in as the supplied user")
+    parser.addini(
+        "skipverify", help="pass in to not verify the server version with the pydriver version")
 
 
 def api_url(pytestconfig):
+    ini_option = pytestconfig.getini('url')
+    if len(ini_option) > 0:
+        return ini_option
     return pytestconfig.getoption("--url")
 
 
 def api_user(pytestconfig):
+    ini_option = pytestconfig.getini('user')
+    if len(ini_option) > 0:
+        return ini_option
     return pytestconfig.getoption("--user").lower()
 
 
 def api_pass(pytestconfig):
+    ini_option = pytestconfig.getini('pass')
+    if len(ini_option) > 0:
+        return ini_option
     return pytestconfig.getoption("--pass")
 
 
 def api_verifyVersion(pytestconfig):
+    ini_option = pytestconfig.getini('skipverify')
+    if len(ini_option) > 0:
+        return ini_option
     return pytestconfig.getoption("--skipverify")
 
 
@@ -60,8 +84,8 @@ class Helpers:
         return self.open_swimlane_instance(self.url, user or self.userName, password or self.password, self.verifyVersion, write_to_read_only)
 
     def open_swimlane_instance(self, url, user, password, verifyVersion, write_to_read_only=False):
-        print ('\nINITIALIZATION\n')
-        print ('Version Verification check: %s\n' % verifyVersion)
+        print('\nINITIALIZATION\n')
+        print('Version Verification check: %s\n' % verifyVersion)
         return Swimlane(url, user,  password, verify_ssl=False, verify_server_version=verifyVersion, write_to_read_only=write_to_read_only)
 
     def findCreateApp(self, defaultApp):
@@ -71,7 +95,7 @@ class Helpers:
         try:
             app = self.swimlane_instance.apps.get(
                 name="PYTHON-%s" % defaultApp)
-            print ("App found without issues.")
+            print("App found without issues.")
             return app, appId
         except ValueError as E:
             if (str(E).startswith('No app with name')):
@@ -80,7 +104,7 @@ class Helpers:
                     dependentApp = self.appPairings[defaultApp]
                     modifications = [{'field': "name", 'value': "PYTHON-%s" % dependentApp, 'type': "create"}, {'field': "acronym", 'value': generateUniqueAcronym(
                         self.swimlane_instance), 'type': 1}, {'field': "description", 'value': pytest.fake.sentence(), 'type': 1}]
-                    with open('apps/%s.json' % dependentApp) as json_data:
+                    with open('{file_path}/apps/{dependentApp}.json'.format(file_path=file_path, dependentApp=dependentApp)) as json_data:
                         manifest = json.load(json_data)
                     newapp = self.swimlane_instance.request(
                         'post', 'app/import', json={"manifest": manifest, "modifications": modifications}).json()
@@ -88,7 +112,7 @@ class Helpers:
                     self.appIds.append(newapp['application']['id'])
                 modifications = [{'field': "name", 'value': "PYTHON-%s" % defaultApp, 'type': "create"}, {'field': "acronym", 'value': generateUniqueAcronym(
                     self.swimlane_instance), 'type': 1}, {'field': "description", 'value': pytest.fake.sentence(), 'type': 1}]
-                with open('apps/%s.json' % defaultApp) as json_data:
+                with open('{file_path}/apps/{defaultApp}.json'.format(file_path=file_path, defaultApp=defaultApp)) as json_data:
                     manifest = json.load(json_data)
                 if 'Application' in manifest:
                     manifest['Application']['Fields'] = updateRefField(
@@ -110,6 +134,31 @@ class Helpers:
             else:
                 print(str(E))
                 return app, appId
+
+    def import_content(self, file_name):
+        full_file_path = '{file_path}/content/{file_name}'.format(file_name=file_name, file_path=file_path)
+        with open(full_file_path, 'rb') as file_handle:
+            file_stream = file_handle.read()
+        with ZipFile(full_file_path) as ssp_zip:
+            with ssp_zip.open('Meta/IdMapping.json') as id_mapping:
+                entity_ids = json.load(id_mapping)['mapping'].values()
+        bytes_stream = BytesIO(file_stream)
+        file = {
+            'file': (file_name, bytes_stream, 'application/octet-stream')
+        }
+        data = {
+            'runInBackground': False,
+            'entityIds': entity_ids
+        }
+        tracking_id = self.swimlane_instance.request(
+            'post', 'content/import', files=file, data=data).text
+        response = self.swimlane_instance.request(
+            'get', 'content/import/%s/status' % tracking_id).json()
+        if response.get('state') == 'Success':
+            for app in response.get('entities').get('application'):
+                self.appIds.append(app.get('id'))
+        else:
+            print('Failed to import: {}'.format(response.get('errors')))
 
     def createUser(self, username='', groups=None, roles=None):
         password = pytest.fake.password()
@@ -185,13 +234,19 @@ class Helpers:
         return newRole
 
     def waitOnJobByID(self, jobId):
+        sleepTime = 0
         while True:
             loggingStuff = self.swimlane_instance.helpers.check_bulk_job_status(
                 jobId)
             if (True in (ele['status'] == 'completed' for ele in loggingStuff)):
                 break
+            elif (True in (ele['status'] == 'failed' for ele in loggingStuff)):
+                raise Exception("Batch Job failed")
+            elif (sleepTime > 30):
+                raise Exception("Timed out waiting for the job to complete")
             else:
                 time.sleep(0.1)
+                sleepTime += 0.1
 
     def updateApp(self, appID):
         newapp = self.swimlane_instance.request('get', 'app/%s' % appID).json()
@@ -204,28 +259,28 @@ class Helpers:
         dashboardsList = []
         workspacesList = []
         for eachApp in self.appIds:
-            print ("Removing app with ID: %s" % eachApp)
+            print("Removing app with ID: %s" % eachApp)
             for eachWorkspace in self.swimlane_instance.request('get', 'workspaces/app/%s' % eachApp).json():
                 workspacesList.append(eachWorkspace['id'])
                 dashboardsList += eachWorkspace['dashboards']
             self.swimlane_instance.request('delete', 'app/%s' % eachApp)
         for eachUser in self.userIds:
-            print ("Removing user with ID: %s" % eachUser)
+            print("Removing user with ID: %s" % eachUser)
             self.swimlane_instance.request('delete', 'user/%s' % eachUser)
         for eachGroup in self.groupIds:
-            print ("Removing group with ID: %s" % eachGroup)
+            print("Removing group with ID: %s" % eachGroup)
             self.swimlane_instance.request('delete', 'groups/%s' % eachGroup)
         for eachRole in self.roleIds:
-            print ("Removing role with ID: %s" % eachRole)
+            print("Removing role with ID: %s" % eachRole)
             self.swimlane_instance.request('delete', 'roles/%s' % eachRole)
         dashboardsList = list(set(dashboardsList))
         for eachDashbaord in dashboardsList:
-            print ("Removing dashboard with ID: %s" % eachDashbaord)
+            print("Removing dashboard with ID: %s" % eachDashbaord)
             self.swimlane_instance.request(
                 'delete', 'dashboard/%s' % eachDashbaord)
         workspacesList = list(set(workspacesList))
         for eachWorkspace in workspacesList:
-            print ("Removing workspace with ID: %s" % eachWorkspace)
+            print("Removing workspace with ID: %s" % eachWorkspace)
             self.swimlane_instance.request(
                 'delete', 'workspaces/%s' % eachWorkspace)
         self.appIds = []
@@ -237,7 +292,7 @@ class Helpers:
         pytest.groupsCreated = {}
         pytest.usersCreated = {}
         try:
-            with open('apps/%s.relations.json' % appName) as json_data:
+            with open('{file_path}/apps/{appName}.relations.json'.format(file_path=file_path, appName=appName)) as json_data:
                 usersGroups = json.load(json_data)
                 for eachGroup in usersGroups['groups']:
                     new_groups = [i for i in map(lambda arg: {"$type": "Core.Models.Base.Entity, Core", "id":  pytest.groupsCreated['PYTHON-%s' %
@@ -255,7 +310,7 @@ class Helpers:
             print('No users or groups to create')
 
     def loadFileStream(self, filename):
-        with open('fixtures/%s' % filename, 'rb') as file_handle:
+        with open('{file_path}/fixtures/{filename}'.format(file_path=file_path, filename=filename), 'rb') as file_handle:
             data = file_handle.read()
         return BytesIO(data)
 
